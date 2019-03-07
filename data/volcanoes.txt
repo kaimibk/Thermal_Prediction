@@ -7,7 +7,7 @@ augustine -153.43 59.36 0.2
 awu 125.50 3.67 0.2
 bagana 155.20 -6.14 0.2
 barren_island 93.86 12.28 0.2
-bezymianny 160.61 55.98 0.15 0.06
+bezymianny 160.61 55.98 0.15
 cameroon 9.17 4.17 0.2
 cleveland -169.94 52.83 0.2
 colima -103.62 19.51 0.1
@@ -27,7 +27,7 @@ karthala 43.37 -11.76 0.1
 karymsky 159.45 54.05 0.15
 kavachi 157.95 -9.02 0.1
 kilauea -155.05 19.35 0.3
-klyuckevskoi 160.65 56.06 0.30 0.12
+klyuckevskoi 160.65 56.06 0.30
 krakatau 105.42 -6.10 0.1
 langila 148.42 -5.52 0.1
 lascar -67.73 -23.37 0.1
@@ -39,7 +39,7 @@ michael -26.45 -57.78 0.2
 miyake_jima 139.52 34.08 0.1
 mount_belinda -26.33 -58.42 0.2 
 mount_st_helens -122.18 46.20 0.1
-nyamuragira 29.16 -1.35 0.4 0.27
+nyamuragira 29.16 -1.35 0.4
 nyirangongo 29.25 -1.60 0.2
 pacaya -90.60 14.38 0.1
 pago 150.52 -5.57 0.1
