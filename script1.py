@@ -392,6 +392,13 @@ for j in range(Ntrials):
             currentRadiance = \
                 radiances[1][i]
 
+        if (currentRadiance\
+            > maxRadiance):
+            maxRadiance =\
+                currentRadiance
+            otherRadiance =\
+                    radiances[4][i]
+
         # We look to see if there is
         # an overlap or gap in data
         deltaTime = (UNIXtimes[i+1]\
@@ -402,9 +409,6 @@ for j in range(Ntrials):
         # continue reading more
         # data
         if (deltaTime == 0):
-            maxRadiance = max(\
-                maxRadiance,\
-                currentRadiance)
             Nhotspot = \
                 Nhotspot + 1
             continue
@@ -432,7 +436,7 @@ for j in range(Ntrials):
         if (deltaTime > deltaTime_max):
             nextRadiance = \
                 getRadiance4(-0.8,\
-                    radiances[4][i])
+                    otherRadiance)
 
             # If there is missing data
             # we also need to check to
