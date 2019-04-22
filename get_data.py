@@ -18,6 +18,8 @@ def get_data(jyear, jday, jperiod, lonmin, lonmax, latmin, latmax):
             f"lonmax={lonmax}&"
             f"latmax={latmax}")
 
+    print("url:",url)
+
     df = pd.read_csv(urlopen(url),
             delimiter=' ', skipinitialspace=True, header=None)
 
