@@ -296,9 +296,10 @@ exp001file.close()
 minSTARTtime = getTimeCooled(500.0)
 
 STARTtimes = minSTARTtime + [\
-              0.05,\
-              0.10,\
-              0.20\
+              0.00,\
+              4.00,\
+              8.00,\
+             16.00\
               ]
 
 Ntrials = len(STARTtimes)
@@ -329,6 +330,7 @@ for j in range(Ntrials):
           + getFlyoverPeriod(0.0,0.0)),\
         wavelengths[0])
 
+    print("")
     print("deltaRadiance_max:",\
             deltaRadiance_max)
     print("T1:",\
@@ -482,6 +484,7 @@ for j in range(Ntrials):
 # Data Post-Processing
 ###############################################
 
+print("")
 print(len(UNIXtimeData),\
       len(maxRadianceData),\
       len(NhotspotData),\
@@ -494,25 +497,42 @@ exp002file = open(cwd+'exp002.dat',"w")
 
 # Limit ourselves to a manageable
 # number of data points
-Nhandicap = 100
+Nhandicap = 200
 Nunique = min(Nunique,Nhandicap)
 
+longstring = "{:10d}   {:7.3f} {:3d}"
+for j in range(Ntrials):
+    longstring = longstring + \
+            " {:1d} {:1d}"
+
+longarguments = []
 for i in range(Nunique):
-    exp002file.write(("{:10d}   {:7.3f}"+\
-                      " {:3d}"+\
-                      " {:1d} {:1d}"+\
-                      " {:1d} {:1d}"+\
-                      " {:1d} {:1d}"+\
+    longarguments.append([])
+    longarguments[i].append(\
+            UNIXtimeData[i+1])
+    longarguments[i].append(\
+            maxRadianceData[i+1])
+    longarguments[i].append(\
+            NhotspotData[i+1])
+    for j in range(Ntrials):
+        longarguments[i].append(\
+            missingData[j][i+1])
+        longarguments[i].append(\
+            anomolousData[j][i+1])
+
+for i in range(Nunique):
+    exp002file.write((longstring+\
                       "\n").format(\
-                       UNIXtimeData[i+1],\
-                       maxRadianceData[i+1],\
-                       NhotspotData[i+1],\
-                       missingData[0][i+1],\
-                       anomolousData[0][i+1],\
-                       missingData[1][i+1],\
-                       anomolousData[1][i+1],\
-                       missingData[2][i+1],\
-                       anomolousData[2][i+1]))
+                          *longarguments[i]))
+#                      UNIXtimeData[i+1],\
+#                      maxRadianceData[i+1],\
+#                      NhotspotData[i+1],\
+#                      missingData[0][i+1],\
+#                      anomolousData[0][i+1],\
+#                      missingData[1][i+1],\
+#                      anomolousData[1][i+1],\
+#                      missingData[2][i+1],\
+#                      anomolousData[2][i+1]))
 
 exp002file.close()
 
@@ -532,18 +552,34 @@ gw('set tmargin 0\n')
 gw('set bmargin 0\n')
 gw('set lmargin 1\n')
 gw('set rmargin 1\n')
-gw('set multiplot layout 3,1 ' + \
-   'columnsfirst margins 0.1,0.95,.1,.9 ' + \
-   'spacing 0.1,0 title ' + \
-   '"Maximum Radiances Detected with Varying Threshold" ' + \
-   'font ",36" offset 0,3\n')
+gw(f'set multiplot layout {Ntrials},1 ' + \
+    'columnsfirst margins 0.1,0.95,.1,.9 ' + \
+    'spacing 0.1,0 title ' + \
+    '"Maximum Radiances Detected with Varying Threshold" ' + \
+    'font ",36" offset 0,3\n')
 
-gw('set xlabel "UNIX Time (s)" ' + \
-        'font ",24"\n')
+gw('unset xlabel\n')
+gw('unset xtics\n')
+gw('set grid x\n')
 gw('set ylabel "Maximum Radiance (W/micrometer*m^2)"' + \
         'font ",24"\n')
+gw('set yrange [-1:]\n')
 
-gw('plot "'+cwd+'exp002.dat" u 1:2 w l t ""')
+for i in range(Ntrials):
+    if (i == Ntrials - 1):
+        gw('set xlabel "UNIX Time (s)" ' + \
+                'font ",24"\n')
+        gw('set xtics\n')
+    gw('plot "'+cwd+'exp002.dat" u 1:2 w l t "",\\\n')
+    gw('     "'+cwd+'exp002.dat" u ' + \
+            f'1:(${2*i+4}==1?$2:1/0) ' + \
+            'w p lc "blue" pt 7 ps 2 t "Missing",\\\n')
+    gw('     "'+cwd+'exp002.dat" ' + \
+            f'u 1:(${2*i+5}==1?$2:1/0) ' + \
+            'w p lc "red" pt 7 ps 2 t "Anomolous",\\\n')
+    gw('     "'+cwd+'exp002.dat" ' + \
+            f'u 1:(${2*i+4}==1&&${2*i+5}==1?$2:1/0) ' + \
+            'w p lc "green" pt 7 ps 2 t "Both"\n')
 
 gnuplotfile.close()
 
