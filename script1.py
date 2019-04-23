@@ -254,7 +254,7 @@ exp001file.write("# Emp     Theo  ")
 for i in range(Ntrials):
     exp001file.write((\
             "{:7.3f} {:7.1f} | "\
-            ).format(\
+            +"\n").format(\
             excessesRand[i],A[i]))
 exp001file.close()
 
@@ -310,8 +310,16 @@ missingData = [[] \
         for i in range(Ntrials)]
 
 # Record when we think data has
-# an anomolous drop
-anomolousData = [[] \
+# an anomolous drop in
+# radiance
+anomalousData = [[] \
+        for i in range(Ntrials)]
+
+# Recorded when we think data is
+# missing but also should
+# exist (has an NTI above the
+# threshold)
+suspiciousData = [[] \
         for i in range(Ntrials)]
 
 for j in range(Ntrials):
@@ -376,7 +384,8 @@ for j in range(Ntrials):
     maxRadiance = 0
     Nhotspot = 0
     missingData[j].append(1)
-    anomolousData[j].append(1)
+#   anomalousData[j].append(1)
+    suspiciousData[j].append(1)
     maxRadianceData.append(0)
     NhotspotData.append(0)
     UNIXtimeData.append(0)
@@ -417,13 +426,40 @@ for j in range(Ntrials):
         # maximum radiance and
         # record this on our time
         # series
-        else: 
-            maxRadianceData.append(
-                maxRadiance)
-            NhotspotData.append(
-                Nhotspot + 1)
-            UNIXtimeData.append(
-                UNIXtimes[i])
+        maxRadianceData.append(
+            maxRadiance)
+        NhotspotData.append(
+            Nhotspot + 1)
+        UNIXtimeData.append(
+            UNIXtimes[i])
+
+        # This was one unique flyover
+        Nunique = Nunique + 1
+
+        # There is a corresponding
+        # maximum drop in radiance
+        # for this period of time
+        deltaRadiance_max = \
+            getSpectralRadiance(\
+            getSurfaceTemp(STARTtimes[j]),\
+            wavelengths[0])\
+          - getSpectralRadiance(\
+            getSurfaceTemp(STARTtimes[j]\
+              + deltaTime),\
+            wavelengths[0])
+
+        # And if we have dropped this
+        # amount, record this as an
+        # anomaly
+        deltaRadiance = \
+            maxRadianceData[Nunique-1]\
+            - maxRadianceData[Nunique]
+    
+        if (deltaRadiance > \
+            deltaRadiance_max):
+            anomalousData[j].append(1)
+        else:
+            anomalousData[j].append(0)
 
         # If there is a gap, we know
         # that the NTI is below
@@ -438,51 +474,28 @@ for j in range(Ntrials):
                 getRadiance4(-0.8,\
                     otherRadiance)
 
-            # If there is missing data
-            # we also need to check to
-            # see if it is anomolous
+            # This missing data is
+            # suspicious if the previous
+            # radiance was very high
             deltaRadiance = \
                 maxRadiance-nextRadiance
 
             if (deltaRadiance > \
                 deltaRadiance_max):
-                anomolousData[j].append(1)
+                suspiciousData[j].append(1)
             else:
-                anomolousData[j].append(0)
+                suspiciousData[j].append(0)
 
             missingData[j].append(1)
 
         # Otherwise, do nothing
         else:
             missingData[j].append(0)
-
-        # This was one unique flyover
-        Nunique = Nunique + 1
+            suspiciousData[j].append(0)
 
         # Reset the values
         maxRadiance = 0
         Nhotspot = 0
-
-        # If there was a gap in data
-        # previously, no need to check
-        # the previous time slot for
-        # an anomoly
-        if (missingData[j][Nunique-1] == 1):
-            continue
-
-        # If there is no gap in data
-        # previously, we can now check
-        # if there was an anomoly from
-        # the previous time slot
-        deltaRadiance = \
-            maxRadianceData[Nunique-1]\
-            - maxRadianceData[Nunique]
-
-        if (deltaRadiance > \
-            deltaRadiance_max):
-            anomolousData[j].append(1)
-        else:
-            anomolousData[j].append(0)
 
 ###############################################
 # Data Post-Processing
@@ -493,7 +506,8 @@ print(len(UNIXtimeData),\
       len(maxRadianceData),\
       len(NhotspotData),\
       len(missingData[0]),\
-      len(anomolousData[0]),\
+      len(anomalousData[0]),\
+      len(suspiciousData[0]),\
       Nunique)
 
 # Output our data onto some file
@@ -507,7 +521,7 @@ Nunique = min(Nunique,Nhandicap)
 longstring = "{:10d}   {:7.3f} {:3d}"
 for j in range(Ntrials):
     longstring = longstring + \
-            " {:1d} {:1d}"
+            "  {:1d} {:1d} {:1d}"
 
 longarguments = []
 for i in range(Nunique):
@@ -522,7 +536,9 @@ for i in range(Nunique):
         longarguments[i].append(\
             missingData[j][i+1])
         longarguments[i].append(\
-            anomolousData[j][i+1])
+            anomalousData[j][i+1])
+        longarguments[i].append(\
+            suspiciousData[j][i+1])
 
 for i in range(Nunique):
     exp002file.write((longstring+\
@@ -532,13 +548,21 @@ for i in range(Nunique):
 #                      maxRadianceData[i+1],\
 #                      NhotspotData[i+1],\
 #                      missingData[0][i+1],\
-#                      anomolousData[0][i+1],\
+#                      anomalousData[0][i+1],\
 #                      missingData[1][i+1],\
-#                      anomolousData[1][i+1],\
+#                      anomalousData[1][i+1],\
 #                      missingData[2][i+1],\
-#                      anomolousData[2][i+1]))
+#                      anomalousData[2][i+1]))
 
 exp002file.close()
+
+###############################################
+# Additional Data Post-Processing
+###############################################
+
+tmpfile = open(cwd+'tmp.dat',"w")
+
+tmpfile.close()
 
 ###############################################
 # Data Visualization
@@ -551,7 +575,7 @@ def gw(aline):
     return
 
 gw('set term pngcairo size 2400,3600\n')
-gw('set output "'+'exp002.png"\n')
+gw('set output "'+cwd+'exp002.png"\n')
 gw('set tmargin 0\n')
 gw('set bmargin 0\n')
 gw('set lmargin 1\n')
@@ -563,27 +587,144 @@ gw(f'set multiplot layout {Ntrials},1 ' + \
     'font ",36" offset 0,3\n')
 
 gw('unset xlabel\n')
-gw('unset xtics\n')
-gw('set grid x\n')
+gw(f'set xrange [{UNIXtimeData[1]}:' + \
+        f'{UNIXtimeData[Nunique]}]\n')
+gw('set format x ""\n')
+gw('set grid xtics lt 0 lw 2\n')
 gw('set ylabel "Maximum Radiance (W/micrometer*m^2)"' + \
         'font ",24"\n')
 gw('set yrange [-1:]\n')
 
 for i in range(Ntrials):
+    if (i == 1):
+        gw('unset key\n')
     if (i == Ntrials - 1):
         gw('set xlabel "UNIX Time (s)" ' + \
                 'font ",24"\n')
-        gw('set xtics\n')
+        gw('set format x "%7.3e"\n')
     gw('plot "'+cwd+'exp002.dat" u 1:2 w l t "",\\\n')
     gw('     "'+cwd+'exp002.dat" u ' + \
-            f'1:(${2*i+4}==1?$2:1/0) ' + \
+            f'1:(${3*i+4}==1?$2:1/0) ' + \
             'w p lc "blue" pt 7 ps 2 t "Missing",\\\n')
     gw('     "'+cwd+'exp002.dat" ' + \
-            f'u 1:(${2*i+5}==1?$2:1/0) ' + \
-            'w p lc "red" pt 7 ps 2 t "Anomolous",\\\n')
+            f'u 1:(${3*i+5}==1?$2:1/0) ' + \
+            'w p lc "green" pt 7 ps 2 t "Anomalous",\\\n')
     gw('     "'+cwd+'exp002.dat" ' + \
-            f'u 1:(${2*i+4}==1&&${2*i+5}==1?$2:1/0) ' + \
-            'w p lc "green" pt 7 ps 2 t "Both"\n')
+            f'u 1:(${3*i+4}==1&&{3*i+5}==1?$2:1/0) ' + \
+            'w p lc "turquoise" pt 7 ps 2 t "Anomalous and Missing",\\\n')
+    gw('     "'+cwd+'exp002.dat" ' + \
+            f'u 1:(${3*i+6}==1?$2:1/0) ' + \
+            'w p lc "red" pt 7 ps 2 t "Suspicious",\\\n')
+    gw('     "'+cwd+'exp002.dat" ' + \
+            f'u 1:(${3*i+5}==1&&${3*i+6}==1?$2:1/0) ' + \
+            'w p lc "orange-red" pt 7 ps 2 t "Anomalous and Suspicious"\n')
+
+gnuplotfile.close()
+
+os.system(("gnuplot < "+ cwd + "gnuplotfile"))
+
+
+
+# Reset the gnuplot script for the next graph
+gnuplotfile = open(cwd+"gnuplotfile","w")
+
+gw('set term pngcairo size 2400,3600\n')
+gw('set output "'+cwd+'HeatingCurves.png"\n')
+gw('unset key\n')
+gw('set samples 1000\n')
+gw('set tmargin 0\n')
+gw('set bmargin 0\n')
+gw('set lmargin 1\n')
+gw('set rmargin 1\n')
+gw(f'set multiplot layout 3,1 ' + \
+    'columnsfirst margins 0.1,0.95,.1,.9 ' + \
+    'spacing 0.1,0 title ' + \
+    '"Temperature and Radiance Curves" ' + \
+    'font ",36" offset 0,3\n')
+
+gw('a = -140\n')
+gw('b = 303\n')
+gw('f(x) = a * x + b + 273\n')
+gw('g(x) = a * log(x) + b + 273\n')
+gw(f'c1 = {c1}\n')
+gw(f'c2 = {c2}\n')
+gw(f'lambda = {wavelengths[0]}\n')
+gw('h(x) = c1 / (pi*(lambda**5) *' + \
+        'exp(c2/(lambda*g(x)) - 1.0))\n')
+
+gw('set xrange [-1.5:1.5]\n')
+gw('set xtics nomirror\n')
+gw('set xtics ("0.01" -2, "0.1" -1, "1" 0,' + \
+               '"10" 1, "100" 2)\n')
+gw('unset xlabel\n')
+gw('set ylabel "Temperature (K)"' + \
+        'font ",24"\n')
+gw('plot f(x) w l lw 3\n')
+
+gw('set xrange [10**(-1.5):10**(1.5)]\n')
+gw('unset xtics\n')
+gw('set xtics nomirror\n')
+gw('set ylabel "Temperature (K)"' + \
+        'font ",24"\n')
+gw('plot g(x) w l lw 3\n')
+
+gw('set xrange [10**(-1.5):10**(1.5)]\n')
+gw('unset xtics\n')
+gw('set xtics nomirror\n')
+gw('set xlabel "Time Elapsed (hours)"' + \
+        'font ",24"\n')
+gw('set ylabel "Radiance (W / micrometer*m^2)"' + \
+        'font ",24"\n')
+gw('plot h(x) w l lw 3\n')
+
+gnuplotfile.close()
+
+os.system(("gnuplot < "+ cwd + "gnuplotfile"))
+
+
+# Reset the gnuplot script for the next graph
+gnuplotfile = open(cwd+"gnuplotfile","w")
+
+gw('set term pngcairo size 2400,3600\n')
+gw('set output "'+cwd+'ThresholdCurves.png"\n')
+gw('unset key\n')
+gw('set samples 1000\n')
+gw('set tmargin 0\n')
+gw('set bmargin 0\n')
+gw('set lmargin 1\n')
+gw('set rmargin 1\n')
+gw(f'set multiplot layout {Ntrials},1 ' + \
+    'columnsfirst margins 0.1,0.95,.1,.9 ' + \
+    'spacing 0.1,0 title ' + \
+    '"Radiance Threshold Curves" ' + \
+    'font ",36" offset 0,3\n')
+
+gw('a = -140\n')
+gw('b = 303\n')
+gw('f(x) = a * x + b + 273\n')
+gw('g(x) = a * log(x) + b + 273\n')
+gw(f'c1 = {c1}\n')
+gw(f'c2 = {c2}\n')
+gw(f'lambda = {wavelengths[0]}\n')
+gw('h(x) = c1 / (pi*(lambda**5) *' + \
+        'exp(c2/(lambda*g(x)) - 1.0))\n')
+
+gw('unset xlabel\n')
+for i in range(Ntrials):
+    if (i == Ntrials - 1):
+        gw('set xlabel "Time Elapsed (hours)"' + \
+                'font ",24"\n')
+    gw(f'set xrange [{0.9*STARTtimes[i]}:' + \
+            f'{STARTtimes[i]+2*getFlyoverPeriod(0,0)}]\n')
+    gw(f'set arrow 1 from {STARTtimes[i]}, graph 0 ' + \
+            f'to {STARTtimes[i]}, graph 1 nohead\n')
+    gw(f'set arrow 2 from {STARTtimes[i]+getFlyoverPeriod(0,0)}, graph 0 ' + \
+            f'to {STARTtimes[i]+getFlyoverPeriod(0,0)}, graph 1 nohead\n')
+    gw('unset xtics\n')
+    gw('set xtics nomirror\n')
+    gw('set ylabel "Radiance (W / micrometer*m^2)"' + \
+            'font ",24"\n')
+    gw('plot h(x) w l lw 3\n')
 
 gnuplotfile.close()
 
