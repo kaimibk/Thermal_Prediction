@@ -89,15 +89,15 @@ N = len(UNIXtimes)
 # TimeCooled - hours
 # SurfaceTemp - Kelvin
 def getSurfaceTemp(time_cooled):
-    return -140 * np.log10(time_cooled) \
-           + 303 - absolute_zero
+    return -140.0 * np.log10(time_cooled) \
+           + 303.0 - absolute_zero
 
 # The inverse of the above function
 
 # TimeCooled - hours
 # SurfaceTemp - Kelvin
 def getTimeCooled(surface_temperature):
-    return np.exp((surface_temperature \
+    return 10.0**((surface_temperature \
             + absolute_zero - 303.0)\
             /-140.0)
 
@@ -295,12 +295,14 @@ exp001file.close()
 
 minSTARTtime = getTimeCooled(500.0)
 
-STARTtimes = minSTARTtime + [\
+STARTtimes =  [\
               0.00,\
               4.00,\
               8.00,\
              16.00\
               ]
+
+STARTtimes = [x + minSTARTtime for x in STARTtimes]
 
 Ntrials = len(STARTtimes)
 
@@ -645,7 +647,7 @@ gw(f'set multiplot layout 3,1 ' + \
 gw('a = -140\n')
 gw('b = 303\n')
 gw('f(x) = a * x + b + 273\n')
-gw('g(x) = a * log(x) + b + 273\n')
+gw('g(x) = a * log10(x) + b + 273\n')
 gw(f'c1 = {c1}\n')
 gw(f'c2 = {c2}\n')
 gw(f'lambda = {wavelengths[0]}\n')
@@ -659,14 +661,18 @@ gw('set xtics ("0.01" -2, "0.1" -1, "1" 0,' + \
 gw('unset xlabel\n')
 gw('set ylabel "Temperature (K)"' + \
         'font ",24"\n')
-gw('plot f(x) w l lw 3\n')
+gw('n(x) = 500.0 \n')
+gw('plot f(x) w l lw 3,\\\n')
+gw('     n(x) w l lw 3 lc "black"\n')
 
 gw('set xrange [10**(-1.5):10**(1.5)]\n')
 gw('unset xtics\n')
 gw('set xtics nomirror\n')
 gw('set ylabel "Temperature (K)"' + \
         'font ",24"\n')
-gw('plot g(x) w l lw 3\n')
+gw('n(x) = 500.0 \n')
+gw('plot g(x) w l lw 3,\\\n')
+gw('     n(x) w l lw 3 lc "black"\n')
 
 gw('set xrange [10**(-1.5):10**(1.5)]\n')
 gw('unset xtics\n')
@@ -675,7 +681,10 @@ gw('set xlabel "Time Elapsed (hours)"' + \
         'font ",24"\n')
 gw('set ylabel "Radiance (W / micrometer*m^2)"' + \
         'font ",24"\n')
-gw('plot h(x) w l lw 3\n')
+gw('n(x) = c1 / (pi*(lambda**5) * ' + \
+        'exp(c2/(lambda*500.0) - 1.0)) \n')
+gw('plot h(x) w l lw 3,\\\n')
+gw('     n(x) w l lw 3 lc "black"\n')
 
 gnuplotfile.close()
 
@@ -702,7 +711,7 @@ gw(f'set multiplot layout {Ntrials},1 ' + \
 gw('a = -140\n')
 gw('b = 303\n')
 gw('f(x) = a * x + b + 273\n')
-gw('g(x) = a * log(x) + b + 273\n')
+gw('g(x) = a * log10(x) + b + 273\n')
 gw(f'c1 = {c1}\n')
 gw(f'c2 = {c2}\n')
 gw(f'lambda = {wavelengths[0]}\n')
