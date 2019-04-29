@@ -46,8 +46,36 @@ cwd = os.getcwd() + "/"
 # Data Collection
 ###############################################
 
+# The center of whatever area we are observing
+center_lat = -155
+center_long = 19.5
+
+# The range of this area of observation
+dcenter_lat = 1.0
+dcenter_long = 0.5
+
+# Functions to return the length in latitude
+# or longitude to kilometers, and vice versa
+def lat_to_km(latitude,longitude,dlatitude):
+    return dlatitude * 110.574
+
+def long_to_km(latitude,longitude,dlongitude):
+    return dlongitude * 111.320 * \
+            np.cos(latitude * np.pi / 180.0)
+
+def km_to_lat(latitude,longitude,dkm):
+    return dkm / 110.574
+
+def km_to_long(latitude,longitude,dkm):
+    return dkm / (111.320 * \
+            np.cos(latitude * np.pi / 180.0))
+
 # Gather time and NTI data with pandas
-df = get_data(2019,10,10000,-156,-154,19,20).sort_values('UNIX_Time').reset_index()
+df = get_data(\
+        2019,10,10000,\
+        center_lat-dcenter_lat,center_lat+dcenter_lat,\
+        center_long-dcenter_long,center_long+dcenter_long\
+        ).sort_values('UNIX_Time').reset_index()
 df.rename(index=str, columns={"Mo": "Month", "Dy": "Day", "Hr": "Hour", "Mn" : "Minute"}, inplace=True)
 print(f"...{df.shape[0]} measurements retrieved...")
 
@@ -95,8 +123,20 @@ def getSurfaceTemp(time_cooled):
 # The inverse of the above function
 
 # TimeCooled - hours
+# FractionCovered - between 0 and 1
+# BackgroundTemp - Celsius
 # SurfaceTemp - Kelvin
-def getTimeCooled(surface_temperature):
+#def getTimeCooled(surface_temperature):
+#    return 10.0**((surface_temperature \
+#            + absolute_zero - 303.0)\
+#            /-140.0)
+def getTimeCooled(surface_temperature,\
+        background_temp,fraction_covered):
+#   lava_temperature = \
+#           (surface_temperature - \
+#           background_temp) / \
+#           fraction_covered + 1.0
+#   return 10.0**((lava_temperature \
     return 10.0**((surface_temperature \
             + absolute_zero - 303.0)\
             /-140.0)
@@ -112,12 +152,50 @@ def getTimeCooled(surface_temperature):
 # Temperature - Kelvin
 # Wavelength - micrometer
 # SpectralRadiance - W / (micrometer * m^2)
-def getSpectralRadiance(temperature,wavelength):
+def getSpectralRadiance1(temperature,\
+        wavelength):
 
     candidate_radiance =\
             c1 / (np.pi * (wavelength**5) \
             * (np.exp(c2 / (wavelength * \
                       temperature)) - 1.0))
+
+#   If the radiance is too large, the value
+#   overfills and returns -10.00
+#   if (candidate_radiance > 99.99):
+#       return -10.00
+#   else:
+#       return candidate_radiance
+    return candidate_radiance
+
+# Same as above but account for the
+# fact that some of the surface area
+# is one temperature, and some is
+# another, so the total radiance
+# (which is integrated over the area)
+# is the weighted sum of the radiance
+# of the radiance at the two
+# temperatures
+
+# Temperature1 - Kelvin (lava)
+# Temperature2 - Celsius (background)
+# FractionCovered - between 0 and 1
+# Wavelength - micrometer
+# SpectralRadiance - W / (micrometer * m^2)
+def getSpectralRadiance2(temperature1,\
+        temperature2,fraction_covered,\
+        wavelength):
+
+    candidate_radiance =\
+            c1 / (np.pi * (wavelength**5) \
+            * (fraction_covered * \
+               np.exp(c2 / (wavelength * \
+                      temperature1)) + \
+              (1.0 - fraction_covered) * \
+               np.exp(c2 / (wavelength * \
+                      (temperature2 - \
+                       absolute_zero))) + \
+                      - 1.0))
 
 #   If the radiance is too large, the value
 #   overfills and returns -10.00
@@ -189,7 +267,7 @@ def getRadiance4(NTI,radiance12):
 # Longitude - degees
 # FlyoverPeriod - hours
 def getFlyoverPeriod(latitude,longitude):
-    return 1.5 * 24.0 / 2
+    return 1.1 * 24.0 / 2
 
 ###############################################
 # Data Analysis
@@ -237,13 +315,13 @@ for i in range(Ntrials):
     if (radiance22sRand[i] < 0):
         A.append(getRadiantFlux(\
                  radiance21sRand[i],\
-                 getSpectralRadiance(\
+                 getSpectralRadiance1(\
                  tempsRand[i],\
                  wavelengths[0])))
     else:
         A.append(getRadiantFlux(\
                  radiance22sRand[i],\
-                 getSpectralRadiance(\
+                 getSpectralRadiance1(\
                  tempsRand[i],\
                  wavelengths[1])))
 
@@ -293,7 +371,8 @@ exp001file.close()
 # assumptions we can make here but I
 # am not making any yet
 
-minSTARTtime = getTimeCooled(500.0)
+minSTARTtime = getTimeCooled(500.0,27.0,0.90)
+#minSTARTtime = getTimeCooled(1400.0,27.0,0.90)
 
 STARTtimes =  [\
               0.00,\
@@ -331,32 +410,34 @@ for j in range(Ntrials):
     # so we can calculate the maximum
     # and minimum radiance from the
     # maximum and minimum temperatures
-    deltaRadiance_max = \
-        getSpectralRadiance(\
-        getSurfaceTemp(STARTtimes[j]),\
-        wavelengths[0])\
-      - getSpectralRadiance(\
-        getSurfaceTemp(STARTtimes[j]\
-          + getFlyoverPeriod(0.0,0.0)),\
-        wavelengths[0])
+#   deltaRadiance_max = \
+#       getSpectralRadiance(\
+#       getSurfaceTemp(STARTtimes[j],\
+#       0.50,temps[i]),\
+#       wavelengths[0])\
+#     - getSpectralRadiance(\
+#       getSurfaceTemp(STARTtimes[j]\
+#         + getFlyoverPeriod(0.0,0.0),\
+#       0.50,temps[i]),\
+#       wavelengths[0])
 
     print("")
-    print("deltaRadiance_max:",\
-            deltaRadiance_max)
-    print("T1:",\
-        getSurfaceTemp(STARTtimes[j]))
-    print("T2:",\
-        getSurfaceTemp(STARTtimes[j]\
-          + getFlyoverPeriod(0.0,0.0)))
-    print("radiance1:",\
-        getSpectralRadiance(\
-        getSurfaceTemp(STARTtimes[j]),\
-        wavelengths[0]))
-    print("radiance2:",\
-        getSpectralRadiance(\
-        getSurfaceTemp(STARTtimes[j]\
-          + getFlyoverPeriod(0.0,0.0)),\
-        wavelengths[0]))
+#   print("deltaRadiance_max:",\
+#           deltaRadiance_max)
+#   print("T1:",\
+#       getSurfaceTemp(STARTtimes[j]))
+#   print("T2:",\
+#       getSurfaceTemp(STARTtimes[j]\
+#         + getFlyoverPeriod(0.0,0.0)))
+#   print("radiance1:",\
+#       getSpectralRadiance(\
+#       getSurfaceTemp(STARTtimes[j]),\
+#       wavelengths[0]))
+#   print("radiance2:",\
+#       getSpectralRadiance(\
+#       getSurfaceTemp(STARTtimes[j]\
+#         + getFlyoverPeriod(0.0,0.0)),\
+#       wavelengths[0]))
 
     # We aren't really sure about this
     # but, again, we'll use the
@@ -442,12 +523,14 @@ for j in range(Ntrials):
         # maximum drop in radiance
         # for this period of time
         deltaRadiance_max = \
-            getSpectralRadiance(\
+            getSpectralRadiance2(\
             getSurfaceTemp(STARTtimes[j]),\
+            temps[i],0.90,\
             wavelengths[0])\
-          - getSpectralRadiance(\
+          - getSpectralRadiance2(\
             getSurfaceTemp(STARTtimes[j]\
               + deltaTime),\
+            temps[i],0.90,\
             wavelengths[0])
 
         # And if we have dropped this
