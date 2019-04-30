@@ -1,6 +1,7 @@
 #!/usr/bin/env python 3
 import os
 import random
+import time
 import numpy as np
 from get_data import get_data
 
@@ -71,7 +72,7 @@ def km_to_long(latitude,longitude,dkm):
             np.cos(latitude * np.pi / 180.0))
 
 # The resolution of our heatmap
-resolution = 0.1
+resolution = 0.25
 dlat = km_to_lat(center_lat,center_long,\
         resolution)
 dlong = km_to_long(center_lat,center_long,\
@@ -294,6 +295,7 @@ def getFlyoverPeriod(latitude,longitude):
 
 time_per_frame = \
         getFlyoverPeriod(0.0,0.0) / 2
+frames_per_second = 4
 
 minSTARTtime = getTimeCooled(500.0,27.0,0.90)
 #minSTARTtime = getTimeCooled(1400.0,27.0,0.90)
@@ -325,51 +327,64 @@ def makeImages(local_observable,\
 #         len(suspiciousData),\
 #         Nunique)
 
-    print("")
     print("New frame!")
+    print("")
 
-    min_radiance = 1.0e9
-    max_radiance = 0.0
+    min_radiance = 0.0
+    max_radiance = 15.0
     
     # Output our data onto some file
     exp003file = open(cwd+\
             'exp003heatmap.dat',"w")
 
-    for i in range(Nlong):
-        for j in range(Nlat):
+    for j in range(Nlat):
+        for k in range(Nlong):
             longitude = center_long -\
                     dcenter_long + \
-                    dlong * (0.5 + i)
+                    dlong * (0.5 + k)
             latitude = center_lat -\
                     dcenter_lat + \
                     dlat * (0.5 + j)
             radiance = \
-                    local_observable[j][i]
-            
-            min_radiance = min(\
-                    min_radiance,\
-                    radiance)
-            max_radiance = max(\
-                    max_radiance,\
-                    radiance)
+                    local_observable[j][k]
 
-            exp003file.write(\
-                    f'{latitude} '+ \
-                    f'{longitude} '+ \
-                    f'{radiance}\n')
+            radiance = min(radiance,
+                    max_radiance)
+            radiance = max(radiance,
+                    min_radiance)
+            
+#           min_radiance = min(\
+#                   min_radiance,\
+#                   radiance)
+#           max_radiance = max(\
+#                   max_radiance,\
+#                   radiance)
+
+            exp003file.write((\
+#                   '{:12.6f} ' + \
+#                   '{:12.6f} ' + \
+                    '{:6d} ' + \
+                    '{:6d} ' + \
+                    '{:12.6f}\n').format(\
+#                   latitude,longitude,\
+                    j,k,\
+#                   longitude,latitude,\
+                    radiance))
+
+#           exp003file.write(\
+#                   f'{latitude} '+ \
+#                   f'{longitude} '+ \
+#                   f'{radiance}\n')
         exp003file.write('\n')
     
     exp003file.close()
-
-    min_radiance = 0.0
-    max_radiance = 5.0
  
     # Output our data onto some file
     exp003file = open(cwd+'exp003.dat',"w")
 
-    for i in range(Nunique):
-        UNIXtime = UNIXtimeData[i+1]
-        radiance = maxRadianceData[i+1]
+    for j in range(Nunique):
+        UNIXtime = UNIXtimeData[j+1]
+        radiance = maxRadianceData[j+1]
         exp003file.write(\
                 f'{UNIXtime} ' + \
                 f'{radiance}\n')
@@ -381,7 +396,7 @@ def makeImages(local_observable,\
 ###############################################
      
     for n in range(total_indexes):
-        nframe = start_index + n
+        nframe = start_index + n + 1
 
         # Make the gnuplot script that will
         # visualize our data
@@ -391,14 +406,22 @@ def makeImages(local_observable,\
             return
 
         gw('set term pngcairo size 2400,1200\n')
-        gw('set output "'+cwd+f'png/{nframe}.png"\n')
+        gw(('set output "' + cwd + \
+                'png/{:04d}.png"\n').format(nframe))
         gw(f'set multiplot\n')
         gw('set title ' + \
             '"Radiances over Kileaua" ' + \
             'font ",36" offset 0,3\n')
         gw('set size 0.5, 1.0\n')
         gw('set origin 0.0, 0.0\n')
-        gw('set pm3d map\n')
+
+        gw('set lmargin at screen 0.05\n')
+        gw('set rmargin at screen 0.45\n')
+        gw('set bmargin at screen 0.10\n')
+        gw('set tmargin at screen 0.95\n')
+
+#       gw('set pm3d map\n')
+        gw('set view map\n')
         gw('unset key\n')
         
         gw(f'xmin = {center_long-dcenter_long}\n')
@@ -407,24 +430,38 @@ def makeImages(local_observable,\
         gw(f'ymax = {center_lat+dcenter_lat}\n')
         gw(f'cbmin = {min_radiance}\n')
         gw(f'cbmax = {max_radiance}\n')
-        gw('set xrange [xmin:xmax]\n')
-        gw('set yrange [ymin:ymax]\n')
+#       gw('set xrange [xmin:xmax]\n')
+#       gw('set yrange [ymin:ymax]\n')
+        gw(f'set yrange [0:{Nlong-1}]\n')
+        gw(f'set xrange [0:{Nlat-1}]\n')
+        gw('set zrange [cbmin:cbmax]\n')
         gw('set cbrange [cbmin:cbmax]\n')
         gw('set palette defined (' + \
                 '0 "white", ' + \
+                '0.2 "yellow", ' + \
                 '1 "red"' + \
                 ')\n')
         gw('set xlabel "Longitude" font ",24"\n')
         gw('set ylabel "Latitude" font ",24"\n')
+        gw('set cblabel "Radiance" font ",24"\n')
     #   gw('set format x ""\n')
     #   gw('set grid xtics lt 0 lw 2\n')
+
+        gw('unset ytics\n')
+        gw('set ytics (' + \
+                f'"{center_long-dcenter_long}" 0, ' + \
+                f'"{center_long+dcenter_long}" {Nlong-1}' + \
+                ')\n')
+        gw('unset xtics\n')
+        gw('set xtics (' + \
+                f'"{center_lat-dcenter_lat}" 0, ' + \
+                f'"{center_lat+dcenter_lat}" {Nlat-1}' + \
+                ')\n')
     
-        gw('set lmargin at screen 0.05\n')
-        gw('set rmargin at screen 0.45\n')
-        gw('set bmargin at screen 0.10\n')
-        gw('set tmargin at screen 0.95\n')
-        gw('splot "'+cwd+'exp003heatmap.dat" ' + \
-                'u 1:2:3 w image palette\n')
+#       gw('plot "'+cwd+'exp003heatmap.dat" ' + \
+#               'matrix u 1:2:3 w image\n')
+        gw('plot "'+cwd+'exp003heatmap.dat" ' + \
+                'u 1:2:3 w image\n')
     
         gw('unset lmargin\n')
         gw('unset rmargin\n')
@@ -435,10 +472,13 @@ def makeImages(local_observable,\
         gw(f'xmin = {gif_start_time}\n')
         gw(f'xmax = {gif_end_time}\n')
         gw('set xrange [xmin:xmax]\n')
-        gw('set autoscale y\n')
-        gw('set yrange [0:]\n')
+        gw('set yrange [cbmin:cbmax]\n')
         gw('set xlabel "UNIXtime" font ",24"\n')
         gw('set ylabel "Radiance" font ",24"\n')
+        gw('unset ytics\n')
+        gw('set ytics\n')
+        gw('unset xtics\n')
+        gw('set xtics\n')
         gw('plot "'+cwd+'exp003.dat" ' + \
                 'u 1:2 w l')
         
@@ -492,6 +532,9 @@ missingData = [1]
 anomalousData = []
 suspiciousData = [1]
 
+latitude1 = -155.6
+longitude1 = 19.2
+
 for i in range(N-1):
 
     if (UNIXtimes[i] > gif_end_time): break
@@ -539,11 +582,16 @@ for i in range(N-1):
     if (nlong_max >= Nlong) : \
             nlong_max = Nlong - 1
 
+    print(Nlat)
+    print(Nlat*dlat)
     print(nlat_min)
     print(nlat_max)
+    print(Nlong)
+    print(Nlong*dlong)
     print(nlong_min)
     print(nlong_max)
     print(currentRadiance)
+    print("")
     
     for j in range(nlat_max-nlat_min+1):
         for k in range(nlong_max-nlong_min+1):
@@ -587,16 +635,6 @@ for i in range(N-1):
     # This was one unique flyover
     Nunique = Nunique + 1
 
-    if (i < N-1): \
-    background_4radiance = \
-            getSpectralRadiance2(\
-            10.0,temps[i+1],0.0,\
-            wavelengths[0])
-    local_4radiances = [\
-            [background_4radiance\
-            for i in range(Nlong)]\
-            for j in range(Nlat)]
-
     Nframes = np.floor(deltaTime/\
             time_per_frame)
 
@@ -606,6 +644,16 @@ for i in range(N-1):
 
     Nframes_total = \
             Nframes_total + Nframes
+
+    if (i < N-1): \
+    background_4radiance = \
+            getSpectralRadiance2(\
+            10.0,temps[i+1],0.0,\
+            wavelengths[0])
+    local_4radiances = [\
+            [background_4radiance\
+            for i in range(Nlong)]\
+            for j in range(Nlat)]
 
     # There is a corresponding
     # maximum drop in radiance
@@ -669,5 +717,12 @@ for i in range(N-1):
     # Reset the values
     maxRadiance = 0
     Nhotspot = 0
+
+os.system(f'ffmpeg -r {frames_per_second} ' + \
+        '-f image2 -s 1920x1080 ' + \
+        '-i ' + cwd +'png/%04d.png ' + \
+        '-vcodec libx264 ' + \
+        '-crf 25  -pix_fmt yuv420p ' + \
+        cwd + 'exp003.mp4')
 
 print("Script 2 successully exited!")
